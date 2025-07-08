@@ -1,0 +1,30 @@
+
+#navbar {
+    display: flex;
+    position: fixed;
+    height: 5rem;
+    width: 100%;
+    background-color: #260B1A; 
+    color: #C6D86D;
+    top: 0;
+    left: 0;
+    display: flex;
+    justify-content: space-between;
+}
+
+#logo {
+    padding: 0 6rem;
+}
+
+#navbar #navitems {
+    list-style: none;
+    display: flex;
+    gap: 3rem;
+    padding: 0 6rem;
+}
+
+#navitems li {
+    font-family: 'Schibsted Grotesk', Helvetica, sans-serif;
+    font-size: 1.125rem;
+    align-self: center;
+}
