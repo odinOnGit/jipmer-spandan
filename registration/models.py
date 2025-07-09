@@ -2,9 +2,9 @@ from django.db import models
 from django.utils import timezone
 
 TIERS = (
-  ('tier1', 'Tier 1'),
-  ('tier2', 'Tier 2'),
-  ('tier3', 'Tier 3'),
+  ('tier1', 'Issue #1'),
+  ('tier2', 'Deluxe Edition'),
+  ('tier3', 'Collectors Print'),
 )
 
 TIER_PRICES = {
