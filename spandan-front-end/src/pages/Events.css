@@ -24,8 +24,10 @@
 }
 :root {
     --purple-bg: rgba(119, 36, 201, 0.4);
-    --orange-bg: rgba(255, 51, 0, 0.4);
+    --orange-bg: rgba(255, 132, 0, 0.4);
     --blue-bg: rgba(8, 124, 225, 0.4);
+    --red-bg: rgba(255, 0, 0, 0.4);
+    --green-bg: rgba(47, 255, 0, 0.4);
     --category-badge-bg: #3b233a;
     --category-badge-text: #fff;
     --card-radius: 12px;
@@ -34,8 +36,7 @@
 }
   
 body {
-    background: #101a2b;
-    color: #fff;
+    background: #1B1B1B;
     font-family: 'Segoe UI', Arial, sans-serif;
     margin: 0;
     padding: 0;
@@ -53,16 +54,26 @@ body {
     margin-bottom: 2rem;
 }
   
-.spandan-banner h1 {
+.spandan-banner > h1 {
     display: inline-block;
-    background: linear-gradient(90deg, #1da1f2 0%, #2b6edc 100%);
-    color: #fff;
-    font-size: 2.5rem;
-    font-weight: bold;
-    padding: 0.75rem 2.5rem;
-    border-radius: 12px;
-    margin-bottom: 1rem;
-    letter-spacing: 2px;
+    color: white;
+    font-size: 6rem;
+    font-family: 'Street Drips Extrude';
+    padding-top: 0.75rem;
+    margin-top: 4rem;
+    margin-bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.spandan-banner h1 h1 {
+    
+    position: absolute;
+
+    font-family: 'Street Drips', sans-serif;
+    color: #0095ff;
+    font-size: 6rem;
+
 }
   
 .spandan-banner p {
@@ -122,14 +133,30 @@ body {
     height: 220px;
     border: 4px solid rgba(189, 190, 192, 0.80);
 }
-.chorea { 
+.purple { 
 
     border: var(--purple-bg) solid #4E4E4E;
     background: linear-gradient(var(--purple-bg), var(--purple-bg)), var(--background-image);
 }
-.eastern-band, .western-band { 
+.blue { 
     border: var(--blue-bg) solid #4E4E4E;
     background: linear-gradient(var(--blue-bg), var(--blue-bg)), var(--background-image);
+}
+
+.orange {
+    border: var(--orange-bg) solid #4E4E4E;
+    background: linear-gradient(var(--orange-bg), var(--orange-bg)), var(--background-image);
+
+}
+
+.red {
+    border: var(--red-bg) solid #4E4E4E;
+    background: linear-gradient(var(--red-bg), var(--red-bg)), var(--background-image);
+}
+
+.green {
+    border: var(--green-bg) solid #4E4E4E;
+    background: linear-gradient(var(--green-bg), var(--green-bg)), var(--background-image);
 }
 #top {
     display: flex;

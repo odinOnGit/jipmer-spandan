@@ -4,12 +4,15 @@ import './Events.css'
 const modules = import.meta.glob('../events/**/**/index.jsx', { eager: true })
 
 function Events() {
+  const colorList = ['red', 'blue', 'green', 'orange', 'purple'];
 
     const [category, setCategory] = useState("All");
 
     const eventCards = Object.entries(modules).map(([path, module]) => {
         const type = path.split('/')[2]
         const name = path.split('/')[3] // mentee folder name
+        const hash = [...name].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+        const colorClass = colorList[hash % colorList.length];
         const meta = module.meta || {}
         return {
         //   title: meta.title || `${name}'s App`,
@@ -19,6 +22,7 @@ function Events() {
 
         type,
         name,
+        colorClass,
         fee: meta.fee,
         thumbnail: meta.thumbnail,
         description: meta.description,
@@ -26,19 +30,18 @@ function Events() {
         }
       })
     
-      const categories = [...new Set(eventCards.map(d => d.type))];
+      const categories = ['All', ...new Set(eventCards.map(d => d.type))];
     //   const eventsByCategory = categories.reduce((acc, cat) => {
     //     acc[cat] = rawData.filter(e => e.category === cat);
     //     return acc;
     //   }, {});
 
       
-
   return (
     <>
     <section className="spandan-events-section">
     <div className="spandan-banner">
-      <h1>SPANDAN EVENTS</h1>
+      <h1>EVENTS<h1>EVENTS</h1></h1>
       <p>
         Unleash your talents across cultural performances, sports championships, fine arts, literary competitions, and creative challenges!
       </p>
@@ -52,9 +55,9 @@ function Events() {
         <button className="filter">Online</button>
         <button className="filter">Photography</button> */}
 
-        <button onClick={() => setCategory("All")}>All</button>
+        {/* <button key={cat} onClick={() => setCategory("All")} className={ category === cat ?"filter active" : "filter"}>All</button> */}
         {categories.map(cat => (
-        <button key={cat} onClick={() => setCategory(cat)}>
+        <button key={cat} onClick={() => setCategory(cat)} className={ category === cat ? "filter active" : "filter"}>
         {cat}
         </button>
       ))}
@@ -62,9 +65,9 @@ function Events() {
       </div>
     </div>
     <div className="event-cards-container">
-      {(category === "All" ? eventCards : eventCards.filter(e => e.type === category)).map(({ type, name, fee, thumbnail, description, details }) => (
+      {(category === "All" ? eventCards : eventCards.filter(e => e.type === category)).map(({ type, name, colorClass, fee, thumbnail, description, details }) => (
         
-        <div className={`event-card major ${name.replaceAll(" ", "-").replace("-", " ").replace("(", "").replace(")", "").toLowerCase()}`}>
+        <div className={`event-card major ${colorClass}`}>
         <div id="top"><span className="category-badge">{type}</span>
         <p className="registration-fee">Rs.<b>{fee}</b></p></div>
         <div className="event-photo" background-image={`${thumbnail}`}></div>
