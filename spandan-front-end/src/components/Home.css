@@ -1,0 +1,69 @@
+@import url('https://db.onlinewebfonts.com/c/f9ced2222639ca75db5574cba95a22eb?family=Might+Makes+Right+BB');
+@font-face {
+    font-family: 'Street Drips';
+    src: url('/assets/StreetdripsRegular-lxe1D.woff') format('woff');
+}
+body {
+    margin: 0;
+}
+
+.home-section {
+    height: 100vh;
+    width: 100%;
+    background-color: #F1E5CB;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#spandan {
+    background-image: url("/assets/titlebg.png");
+    
+    height: 40rem;
+    width: 60rem;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    text-align: center;
+}
+
+#titleb {
+    font-family: "Street Drips Extrude";
+    position: absolute;
+    margin-bottom: 5rem;
+    margin-top: 0;
+    color: black;
+    font-size: 10rem;
+}
+
+#titlef {
+    font-family: "Street Drips";
+    position: absolute;
+    margin-bottom: 5rem;
+    margin-top: 0;
+    font-size: 10rem;
+    font-weight: 400;
+    color: #149CFF;
+}
+
+
+@media (max-width: 945px) {
+
+    #spandan {
+        background-size: cover;
+        height: 30rem;
+        width: 40rem;
+    }
+    #titleb {
+        font-size: 5rem;
+    }
+    
+    #titlef {
+        font-size: 5rem;
+    }
+}
