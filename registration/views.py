@@ -10,9 +10,11 @@ from .serializers import DelegateCardRegistrationSerializer, EventRegistrationSe
 import openpyxl
 from openpyxl.utils import get_column_letter
 from registration.utils.email import send_smtp_email
+import json
+from django.db import transaction
+from rest_framework.parsers import MultiPartParser, FormParser
 
-
-### 1. EXEMPTIONS AND PASS LOGIC ###
+# Constants
 EXEMPT_EVENTS = {
     'snap_saga', 'verse', 'reel_realm',
     'junior_mediquiz', 'senior_mediquiz',
@@ -26,7 +28,7 @@ CULT_MAJOR_EVENTS = {'chorea', 'alaap', 'tinnitus', 'dernier_cri'}
 LIT_EVENTS = {'debate', 'poetry', 'essay', 'elocution'}
 QUIZ_EVENTS = {'medical_quiz', 'general_quiz'}
 
-### 2. DELEGATE CARD REGISTRATION ###
+# Delegate Card Views
 class DelegateCardRegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -52,119 +54,165 @@ def verify_registration(request, pk):
     try:
         reg = DelegateCardRegistration.objects.get(pk=pk)
     except DelegateCardRegistration.DoesNotExist:
-        return Response({'error': 'Registration not found'}, status=status.HTTP_404_NOT_FOUND)
-
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+    
     reg.is_verified = True
+    reg.status = 'approved'
     reg.verified_at = timezone.now()
     reg.save()
 
     send_smtp_email(
         to_email=reg.email,
         subject="✅ Delegate Card Verified – Spandan 2025",
-        message=f"Hi {reg.name},\n\nYour delegate card (Tier: {reg.tier}) has been verified.\nThank you for registering!"
+        message=f"Hi {reg.name},\n\nYour delegate card (Tier: {reg.tier}) has been verified.\nYour ID: {reg.user_id}\nThank you for registering!"
     )
+    return Response({"message": "Delegate card verified"}, status=status.HTTP_200_OK)
 
-    return Response({'message': 'Registration verified successfully'}, status=status.HTTP_200_OK)
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def reject_delegate_registration(request, pk):
+    try:
+        reg = DelegateCardRegistration.objects.get(pk=pk)
+    except DelegateCardRegistration.DoesNotExist:
+        return Response({'error': 'Registration not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    reg.status = 'rejected'
+    reg.is_verified = False
+    reg.verified_at = timezone.now()
+    reg.save()
+
+    send_smtp_email(
+        to_email=reg.email,
+        subject="❌ Delegate Card Rejected – Spandan 2025",
+        message=f"Hi {reg.name},\n\nYour delegate card registration (Tier: {reg.tier}) has been rejected.\nPlease check your submission and try again."
+    )
+    return Response({'message': 'Delegate card rejected'}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def export_verified_delegate_cards(request):
     regs = DelegateCardRegistration.objects.filter(is_verified=True)
-
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Verified Delegate Cards"
-
-    headers = ["Name", "Email", "Phone", "Tier", "Amount", "Verified At"]
+    ws.title = "Delegate Cards"
+    headers = ["User ID", "Name", "Email", "Phone", "College", "Tier", "Amount", "Status", "Transaction ID", "Verified At", "Date"]
     ws.append(headers)
-
-    for reg in regs:
+    for r in regs:
         ws.append([
-            reg.name,
-            reg.email,
-            str(reg.phone),
-            reg.tier,
-            reg.amount,
-            reg.verified_at.strftime("%Y-%m-%d %H:%M:%S") if reg.verified_at else ""
+            r.user_id, r.name, r.email, r.phone, r.college_name, r.tier,
+            r.amount, r.status, r.transaction_id,
+            r.verified_at.strftime("%Y-%m-%d %H:%M") if r.verified_at else "", 
+            r.created_at.strftime("%Y-%m-%d")
         ])
-
-    for i, header in enumerate(headers, 1):
-        ws.column_dimensions[get_column_letter(i)].width = 22
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = 'attachment; filename=verified_delegate_cards.xlsx'
+    for i in range(1, len(headers) + 1):
+        ws.column_dimensions[get_column_letter(i)].width = 20
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=delegate_cards.xlsx'
     wb.save(response)
     return response
 
-
-### 3. EVENT REGISTRATION ###
+# Event Registration Views
 class EventRegisterView(APIView):
     permission_classes = [permissions.AllowAny]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def validate_delegate_ids(self, delegate_ids, email):
+        if not delegate_ids:
+            return True
+        for delegate_id in delegate_ids:
+            try:
+                card = DelegateCardRegistration.objects.get(user_id=delegate_id, is_verified=True)
+                if card.email != email:
+                    return False
+            except DelegateCardRegistration.DoesNotExist:
+                return False
+        return True
 
     def post(self, request):
-        data = request.data.copy()
-        raw_events = data.get("events", [])
-        email = data.get("email")
+        try:
+            data = request.data.dict()  # Convert QueryDict to regular dict
+            
+            # Parse JSON fields
+            json_fields = ['events', 'delegate_id']
+            for field in json_fields:
+                if field in data and isinstance(data[field], str):
+                    try:
+                        data[field] = json.loads(data[field])
+                    except json.JSONDecodeError:
+                        return Response(
+                            {field: "Invalid JSON format"},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
 
-        # Normalize event input
-        if isinstance(raw_events, str):
-            selected_events = set(e.strip() for e in raw_events.split(",") if e.strip())
-        elif isinstance(raw_events, list):
-            selected_events = set(raw_events)
-        else:
-            return Response({"error": "Invalid event format."}, status=status.HTTP_400_BAD_REQUEST)
+            email = data.get("email", "").lower().strip()
+            selected_events = data.get("events", [])
+            
+            if not isinstance(selected_events, list) or len(selected_events) == 0:
+                return Response(
+                    {"events": "At least one event must be selected"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        # Determine if delegate card or pass is required
-        needs_delegate = False
-        invalid_cult_major = False
+            # Validate delegate IDs if provided
+            delegate_ids = data.get("delegate_id", [])
+            if delegate_ids:
+                if not isinstance(delegate_ids, list):
+                    return Response(
+                        {"delegate_id": "Must be an array"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                with transaction.atomic():
+                    for delegate_id in delegate_ids:
+                        if not DelegateCardRegistration.objects.filter(
+                            user_id=delegate_id.strip(),
+                            is_verified=True
+                        ).exists():
+                            return Response(
+                                {"error": f"Delegate {delegate_id} not verified"},
+                                status=status.HTTP_400_BAD_REQUEST
+                            )
 
-        for event in selected_events:
-            if event in EXEMPT_EVENTS:
-                continue
-            elif event in CULT_MAJOR_EVENTS:
-                needs_delegate = True
-                invalid_cult_major = True
-            elif event in SPORTS_EVENTS:
-                has_pass = PassPurchase.objects.filter(email=email, pass_type='sports', is_verified=True).exists()
-                if not has_pass:
-                    needs_delegate = True
-            elif event in CULT_EVENTS:
-                has_pass = PassPurchase.objects.filter(email=email, pass_type='cult', is_verified=True).exists()
-                if not has_pass:
-                    needs_delegate = True
-            elif event in LIT_EVENTS:
-                has_lit = PassPurchase.objects.filter(email=email, pass_type__in=['lit', 'lit_premium'], is_verified=True).exists()
-                if not has_lit:
-                    needs_delegate = True
-            elif event in QUIZ_EVENTS:
-                has_quiz = PassPurchase.objects.filter(email=email, pass_type__in=['quiz', 'lit_premium'], is_verified=True).exists()
-                if not has_quiz:
-                    needs_delegate = True
-            else:
-                needs_delegate = True
+            # Check event requirements
+            needs_delegate = any(
+                event not in EXEMPT_EVENTS
+                and not (
+                    (event in SPORTS_EVENTS and PassPurchase.objects.filter(email=email, pass_type='sports', is_verified=True).exists()) or
+                    (event in CULT_EVENTS and PassPurchase.objects.filter(email=email, pass_type='cult', is_verified=True).exists()) or
+                    (event in LIT_EVENTS and PassPurchase.objects.filter(email=email, pass_type__in=['lit_lit', 'lit_premium'], is_verified=True).exists()) or
+                    (event in QUIZ_EVENTS and PassPurchase.objects.filter(email=email, pass_type__in=['lit_quiz', 'lit_premium'], is_verified=True).exists())
+                )
+                for event in selected_events
+            )
 
-        if needs_delegate:
-            has_delegate = DelegateCardRegistration.objects.filter(email=email, is_verified=True).exists()
-            if not has_delegate:
-                return Response({"error": "Delegate card or valid pass required."}, status=status.HTTP_403_FORBIDDEN)
+            if needs_delegate and not DelegateCardRegistration.objects.filter(email=email, is_verified=True).exists():
+                return Response(
+                    {"error": "Delegate card or valid pass required for selected events"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
-        serializer = EventRegistrationSerializer(data=data)
-        if serializer.is_valid():
-            reg = serializer.save()
-            return Response({
-                "message": "Event registration submitted",
-                "registration": EventRegistrationSerializer(reg).data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            serializer = EventRegistrationSerializer(data=data)
+            if serializer.is_valid():
+                reg = serializer.save()
+                
+                # Auto-generate user_id if not set
+                if not reg.user_id:
+                    reg.user_id = f"USER-EV-{reg.id:05d}"
+                    reg.save()
+                
+                return Response({
+                    "message": "Event registration submitted",
+                    "user_id": reg.user_id,
+                    "registration": EventRegistrationSerializer(reg).data
+                }, status=status.HTTP_201_CREATED)
+            
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def get(self, request):
-        self.check_permissions(request)
-        regs = EventRegistration.objects.all()
-        serializer = EventRegistrationSerializer(regs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"error": "Server error", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated, IsAdminUser])
@@ -172,57 +220,69 @@ def verify_event_registration(request, pk):
     try:
         reg = EventRegistration.objects.get(pk=pk)
     except EventRegistration.DoesNotExist:
-        return Response({'error': 'Registration not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
     reg.is_verified = True
+    reg.status = 'approved'
     reg.verified_at = timezone.now()
     reg.save()
 
     send_smtp_email(
         to_email=reg.email,
         subject="✅ Event Registration Verified – Spandan 2025",
-        message=f"Hi {reg.name},\n\nYour registration has been verified for the following events:\n" +
+        message=f"Hi {reg.name},\n\nYour registration is verified for:\n" +
                 "\n".join(f"• {e}" for e in reg.events) +
-                f"\n\nTotal paid: ₹{reg.amount}\nSee you at Spandan!"
+                f"\n\nTotal paid: ₹{reg.amount}\nYour ID: {reg.user_id}"
     )
+    return Response({"message": "Event registration verified"}, status=status.HTTP_200_OK)
 
-    return Response({'message': 'Event registration verified successfully'}, status=status.HTTP_200_OK)
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def reject_event_registration_soft(request, pk):
+    try:
+        reg = EventRegistration.objects.get(pk=pk)
+    except EventRegistration.DoesNotExist:
+        return Response({'error': 'Registration not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    reg.status = 'rejected'
+    reg.is_verified = False
+    reg.verified_at = timezone.now()
+    reg.save()
+
+    send_smtp_email(
+        to_email=reg.email,
+        subject="❌ Event Registration Rejected – Spandan 2025",
+        message=f"Hi {reg.name},\n\nYour event registration has been rejected.\n\nEvents:\n" +
+                "\n".join(f"• {e}" for e in reg.events) +
+                "\n\nPlease review your payment and try again if needed."
+    )
+    return Response({'message': 'Event registration rejected'}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def export_verified_event_registrations(request):
     regs = EventRegistration.objects.filter(is_verified=True)
-
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Verified Event Registrations"
-
-    headers = ["Name", "Email", "Phone", "Events", "Amount", "Verified At"]
+    ws.title = "Event Registrations"
+    headers = ["User ID", "Name", "Email", "Phone", "College", "Events", "Delegate IDs", "Amount", "Status", "Transaction ID", "Verified At", "Date"]
     ws.append(headers)
-
-    for reg in regs:
+    for r in regs:
         ws.append([
-            reg.name,
-            reg.email,
-            reg.phone,
-            ", ".join(reg.events),
-            reg.amount,
-            reg.verified_at.strftime("%Y-%m-%d %H:%M:%S") if reg.verified_at else ""
+            r.user_id, r.name, r.email, r.phone, r.college,
+            ", ".join(r.events), ", ".join(r.delegate_id or []),
+            r.amount, r.status, r.transaction_id,
+            r.verified_at.strftime("%Y-%m-%d %H:%M") if r.verified_at else "", 
+            r.created_at.strftime("%Y-%m-%d")
         ])
-
-    for i, header in enumerate(headers, 1):
+    for i in range(1, len(headers) + 1):
         ws.column_dimensions[get_column_letter(i)].width = 22
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = 'attachment; filename=verified_event_registrations.xlsx'
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=event_registrations.xlsx'
     wb.save(response)
     return response
 
-
-### 4. PASS PURCHASE ###
+# Pass Purchase Views
 class PassPurchaseView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -242,56 +302,87 @@ class PassPurchaseView(APIView):
         serializer = PassPurchaseSerializer(regs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-
 @api_view(['PATCH'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def verify_pass(request, pk):
     try:
         reg = PassPurchase.objects.get(pk=pk)
     except PassPurchase.DoesNotExist:
-        return Response({'error': 'Pass not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
 
     reg.is_verified = True
+    reg.status = 'approved'
     reg.verified_at = timezone.now()
     reg.save()
 
     send_smtp_email(
         to_email=reg.email,
         subject=f"✅ {reg.get_pass_type_display()} Verified – Spandan 2025",
-        message=f"Hi {reg.name},\n\nYour {reg.get_pass_type_display()} pass has been verified.\nYou're now eligible to register for supported events. Thank you!"
+        message=f"Hi {reg.name},\n\nYour pass has been verified.\nPass ID: {reg.user_id}\nThank you!"
     )
+    return Response({"message": "Pass verified"}, status=status.HTTP_200_OK)
 
-    return Response({'message': 'Pass verified successfully'}, status=status.HTTP_200_OK)
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def reject_pass_soft(request, pk):
+    try:
+        reg = PassPurchase.objects.get(pk=pk)
+    except PassPurchase.DoesNotExist:
+        return Response({'error': 'Pass not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    reg.status = 'rejected'
+    reg.is_verified = False
+    reg.verified_at = timezone.now()
+    reg.save()
+
+    send_smtp_email(
+        to_email=reg.email,
+        subject=f"❌ {reg.get_pass_type_display()} Rejected – Spandan 2025",
+        message=f"Hi {reg.name},\n\nYour pass purchase ({reg.get_pass_type_display()}) has been rejected.\nPlease check the screenshot or contact support."
+    )
+    return Response({'message': 'Pass rejected'}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def export_verified_passes(request):
     regs = PassPurchase.objects.filter(is_verified=True)
-
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Verified Pass Purchases"
-
-    headers = ["Name", "Email", "Phone", "Pass Type", "Amount", "Verified At"]
+    ws.title = "Pass Purchases"
+    headers = ["User ID", "Name", "Email", "Phone", "College", "Pass Type", "Amount", "Status", "Transaction ID", "Verified At", "Date"]
     ws.append(headers)
-
-    for reg in regs:
+    for r in regs:
         ws.append([
-            reg.name,
-            reg.email,
-            reg.phone,
-            reg.get_pass_type_display(),
-            reg.amount,
-            reg.verified_at.strftime("%Y-%m-%d %H:%M:%S") if reg.verified_at else ""
+            r.user_id, r.name, r.email, r.phone, r.college_name,
+            r.get_pass_type_display(), r.amount, r.status, r.transaction_id,
+            r.verified_at.strftime("%Y-%m-%d %H:%M") if r.verified_at else "", 
+            r.created_at.strftime("%Y-%m-%d")
         ])
-
-    for i, header in enumerate(headers, 1):
+    for i in range(1, len(headers) + 1):
         ws.column_dimensions[get_column_letter(i)].width = 22
-
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = 'attachment; filename=verified_passes.xlsx'
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=pass_purchases.xlsx'
     wb.save(response)
     return response
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def check_delegate_eligibility(request, email):
+    email = email.lower()
+    try:
+        reg = DelegateCardRegistration.objects.get(email=email)
+        return Response({
+            'is_verified': reg.is_verified,
+            'user_id': reg.user_id,
+            'tier': reg.tier
+        })
+    except DelegateCardRegistration.DoesNotExist:
+        return Response({'is_verified': False})
+    except DelegateCardRegistration.MultipleObjectsReturned:
+        regs = DelegateCardRegistration.objects.filter(email=email)
+        verified = any(reg.is_verified for reg in regs)
+        return Response({
+            'is_verified': verified,
+            'user_id': [reg.user_id for reg in regs],
+            'tier': [reg.tier for reg in regs]
+        })

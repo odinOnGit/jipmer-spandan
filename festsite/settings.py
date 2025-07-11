@@ -75,8 +75,14 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+SIMPLE_JWT = {
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
 CORS_ALLOWED_ORIGINS = [
-  " http://localhost:5173",
+  "http://localhost:5173",
 ]
 
 ROOT_URLCONF = 'festsite.urls'
