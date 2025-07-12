@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,100..900;1,100..900&display=swap');
+@import url('https://db.onlinewebfonts.com/c/f9ced2222639ca75db5574cba95a22eb?family=Might+Makes+Right+BB');
 
 @font-face {
     font-family: 'Street Drips';
@@ -28,10 +29,7 @@
     --blue-bg: rgba(8, 124, 225, 0.4);
     --red-bg: rgba(255, 0, 0, 0.4);
     --green-bg: rgba(47, 255, 0, 0.4);
-    --category-badge-bg: #3b233a;
-    --category-badge-text: #fff;
     --card-radius: 12px;
-    --fee-gradient: linear-gradient(90deg, #1da1f2 0%, #2b6edc 100%);
     --background-image: url('/assets/BG.png');
 }
   
@@ -60,8 +58,7 @@ body {
     font-size: 6rem;
     font-family: 'Street Drips Extrude';
     padding-top: 0.75rem;
-    margin-top: 4rem;
-    margin-bottom: 0;
+    margin: 0;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -126,6 +123,8 @@ body {
     color: #fff;
     outline: 9px solid #FFE165;
     justify-content: space-between;
+
+    margin: 1rem;
 }
   
 .event-photo {
@@ -214,6 +213,7 @@ body {
 .registration-fee b {
     font-weight: 400;
     font-size: 2.2rem;
+    padding-bottom: 0.2rem;
 }
   
 @media (max-width: 700px) {

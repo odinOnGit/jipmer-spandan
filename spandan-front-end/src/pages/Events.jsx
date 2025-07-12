@@ -1,11 +1,15 @@
 import React, { useState } from 'react'
 import './Events.css'
+import { LuBadgeIndianRupee } from "react-icons/lu";
+
 
 const modules = import.meta.glob('../events/**/**/index.jsx', { eager: true })
 
 function Events() {
   const colorList = ['red', 'blue', 'green', 'orange', 'purple'];
-
+  const lateDate = new Date('2025-08-18T00:00');
+  const onSpotDate = new Date('2025-08-25T00:00');
+  const currentDate = new Date();
     const [category, setCategory] = useState("All");
 
     const eventCards = Object.entries(modules).map(([path, module]) => {
@@ -14,6 +18,7 @@ function Events() {
         const hash = [...name].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
         const colorClass = colorList[hash % colorList.length];
         const meta = module.meta || {}
+        const fee = currentDate <= lateDate ? meta.early : currentDate <= onSpotDate ? meta.late : meta.onspot;
         return {
         //   title: meta.title || `${name}'s App`,
         //   author: meta.author || name,
@@ -23,7 +28,7 @@ function Events() {
         type,
         name,
         colorClass,
-        fee: meta.fee,
+        fee,
         thumbnail: meta.thumbnail,
         description: meta.description,
         details: meta.details,
@@ -69,7 +74,7 @@ function Events() {
         
         <div className={`event-card major ${colorClass}`}>
         <div id="top"><span className="category-badge">{type}</span>
-        <p className="registration-fee">Rs.<b>{fee}</b></p></div>
+        <p className="registration-fee"><LuBadgeIndianRupee size={20}/> <b>{fee}</b></p></div>
         <div className="event-photo" background-image={`${thumbnail}`}></div>
 
         <h2>{name}</h2>

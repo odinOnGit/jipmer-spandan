@@ -33,6 +33,11 @@
     align-self: center;
 }
 
+#navitems li:hover {
+    transform: scale(1.05);
+    transition: ease 200ms;
+}
+
 .navlinks {
     text-decoration: none;
 }
