@@ -12,6 +12,7 @@ class DelegateCardRegistrationSerializer(serializers.ModelSerializer):
 class EventRegistrationSerializer(serializers.ModelSerializer):
     payment_screenshot = serializers.ImageField(required=False, allow_null=True)
     delegate_id = serializers.JSONField(required=False, allow_null=True)
+    amount = serializers.IntegerField(required=False)
     
     class Meta:
         model = EventRegistration

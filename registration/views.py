@@ -116,6 +116,11 @@ class EventRegisterView(APIView):
     permission_classes = [permissions.AllowAny]
     parser_classes = [MultiPartParser, FormParser]
 
+    def get(self, request):
+        regs = EventRegistration.objects.all()
+        serializer = EventRegistrationSerializer(regs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     def validate_delegate_ids(self, delegate_ids, email):
         if not delegate_ids:
             return True
