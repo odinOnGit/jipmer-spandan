@@ -39,7 +39,7 @@ class EventRegistration(models.Model):
     college = models.CharField(max_length=100)
     events = models.JSONField()
     delegate_id = models.JSONField(blank=True, null=True)
-    amount = models.PositiveIntegerField()
+    amount = models.PositiveIntegerField(default=0)
     payment_screenshot = models.ImageField(upload_to='event_payments/', null=True, blank=True)
     user_id = models.CharField(max_length=20, blank=True)
     transaction_id = models.CharField(max_length=50, blank=True)
