@@ -64,7 +64,7 @@ def verify_registration(request, pk):
     send_smtp_email(
         to_email=reg.email,
         subject="✅ Delegate Card Verified – Spandan 2025",
-        message=f"Hi {reg.name},\n\nYour delegate card (Tier: {reg.tier}) has been verified.\nYour ID: {reg.user_id}\nThank you for registering!"
+        message=f"Dear {reg.name},\nWe are delighted to confirm your registration as a delegate for Spandan 2025 - Beyond the Veil, scheduled to be held from August 25th to 30th at JIPMER, Puducherry. Your participation is a vital to making this event a success, and we are excited to welcome you to a vibrant lineup of activities and discussions!\n\n🪪 Registration Details:\n\n• Delegate Name: {reg.name}\n• College: {reg.college_name}\n• Tier: {reg.tier.upper()}\n• Delegate ID: {reg.user_id}\n• Date of Registration: {reg.created_at.strftime("%m/%d/%Y")}\n\nYou can use your **Delegate ID** `{reg.user_id}` to complete event registration through our official website.\n\nPlease carry a copy of this email and your college ID at the venue for smooth entry. Event guidelines and schedules will be shared soon.\n\nFor help, contact us at jsa.jipmer@gmail.com.\nWe look forward forward to hosting you at Spandan 2025!\n\nWarm regards,\nSuriya\nPresident, JIPMER Student Association"
     )
     return Response({"message": "Delegate card verified"}, status=status.HTTP_200_OK)
 
@@ -84,7 +84,7 @@ def reject_delegate_registration(request, pk):
     send_smtp_email(
         to_email=reg.email,
         subject="❌ Delegate Card Rejected – Spandan 2025",
-        message=f"Hi {reg.name},\n\nYour delegate card registration (Tier: {reg.tier}) has been rejected.\nPlease check your submission and try again."
+        message=f"Hi {reg.name},\n\nYour delegate card registration (Tier: {reg.tier}) has been rejected.\nPlease check your submission and try again.\n\nFor any query, contact us at jsa.jipmer@gmail.com.\n\nRegards,\nTeam Spandan"
     )
     return Response({'message': 'Delegate card rejected'}, status=status.HTTP_200_OK)
 
@@ -195,7 +195,79 @@ class EventRegisterView(APIView):
                     {"error": "Delegate card or valid pass required for selected events"},
                     status=status.HTTP_403_FORBIDDEN
                 )
+            EVENT_PRICE_MAP = {
+                # Fine Arts
+                'face_painting': 100,
+                'pot_painting': 100,
+                'mehendi': 100,
+                'sketching': 100,
+                'painting': 100,
 
+                # Dance
+                'solo_dance': 150,
+                'duet_dance': 150,
+                'chorea_theme': 250,
+                'chorea_nontheme': 250,
+                'show_down': 150,
+
+                # Music
+                'tinnitus': 250,
+                'alaap': 250,
+                'euphony': 150,
+                'raag_rangmanch': 150,
+                'solo_singing': 150,
+                'solo_instrumental': 150,
+
+                # Drama
+                'play': 125,
+                'skit': 125,
+                'mime': 125,
+                'adzap': 125,
+                'variety': 125,
+                'dernier_cri': 250,
+
+                # Sports
+                'cricket': 300,
+                'football': 300,
+                'basketball_men': 300,
+                'basketball_women': 300,
+                'volleyball_men': 300,
+                'volleyball_women': 300,
+                'hockey_men': 300,
+                'hockey_women': 300,
+                'futsal': 300,
+                'chess_bullet': 200,
+                'chess_rapid': 200,
+                'chess_blitz': 200,
+                'carroms': 150,
+                'throwball_men': 300,
+                'throwball_women': 300,
+                'tennis': 300,
+                'aquatics': 200,
+                'badminton': 300,
+                'table_tennis': 300,
+                'athletics': 200,
+
+                # Literary
+                'malarkey': 150,
+                'shipwrecked': 150,
+                'turncoat': 150,
+                'scrabble': 150,
+                'formal_debate': 150,
+                'cryptic_crossword': 150,
+                'ppt_karaoke': 150,
+                'potpourri': 150,
+                'india_quiz': 150,
+                'fandom_quiz': 150,
+                'sports_quiz': 150,
+                'rewind_quiz': 150,
+                'formal_quiz': 250,
+                'tj_jaishankar_memorial_quiz': 250,
+                'jam': 250,
+            }
+
+            amount = sum(EVENT_PRICE_MAP.get(event, 0) for event in selected_events)
+            data['amount'] = amount
             serializer = EventRegistrationSerializer(data=data)
             if serializer.is_valid():
                 reg = serializer.save()
@@ -235,9 +307,7 @@ def verify_event_registration(request, pk):
     send_smtp_email(
         to_email=reg.email,
         subject="✅ Event Registration Verified – Spandan 2025",
-        message=f"Hi {reg.name},\n\nYour registration is verified for:\n" +
-                "\n".join(f"• {e}" for e in reg.events) +
-                f"\n\nTotal paid: ₹{reg.amount}\nYour ID: {reg.user_id}"
+        message=f"Dear {reg.name},\n\nWe are thrilled to confirm your registration for the following events at Spandan 2025 - Beyond the Veil:\n{''.join(f"• {e}\n" for e in reg.events)}\n\n🧾 Registration Details:\nName: {reg.name}\nCollege: {reg.college}\nEmail: {reg.email}\nTotal Paid: ₹{reg.amount}\nEvent ID: {reg.user_id}\n• Date: {reg.created_at.strftime("%m/%d/%Y")}\n\nPlease carry a copy of this confirmation email and your delegate ID(if applicable) during the event.\n\nIf you have questions or need help, feel free to write to us at jsa.jipmer@gmail.com.\nAll the best and see you soon at Spandan 2025!\n\nWarm regards,\nTeam Spandan"
     )
     return Response({"message": "Event registration verified"}, status=status.HTTP_200_OK)
 
@@ -259,7 +329,7 @@ def reject_event_registration_soft(request, pk):
         subject="❌ Event Registration Rejected – Spandan 2025",
         message=f"Hi {reg.name},\n\nYour event registration has been rejected.\n\nEvents:\n" +
                 "\n".join(f"• {e}" for e in reg.events) +
-                "\n\nPlease review your payment and try again if needed."
+                "\n\nPlease review your payment and try again if needed.\n\nFor any query, contact us at jsa.jipmer@gmail.com.\n\nRegards,\nTeam Spandan"
     )
     return Response({'message': 'Event registration rejected'}, status=status.HTTP_200_OK)
 
@@ -323,7 +393,7 @@ def verify_pass(request, pk):
     send_smtp_email(
         to_email=reg.email,
         subject=f"✅ {reg.get_pass_type_display()} Verified – Spandan 2025",
-        message=f"Hi {reg.name},\n\nYour pass has been verified.\nPass ID: {reg.user_id}\nThank you!"
+        message=f"Dear {reg.name},\n\nWe're excited to confirm that your {reg.pass_type} for Spandan2025 has been successfully verified!\n\n🎫 Pass Details:\n• Name: {reg.name}\n• College: {reg.college_name}\n• Pass: {reg.pass_type}\n• Pass ID: {reg.user_id}\n• Amount Paid: ₹{reg.amount}\n• Date of Purchase: {reg.created_at.strftime("%m/%d/%Y")}\n\nYour pass allows you to participate in eligible events under this category. Please carry this confirmation and your college ID for smooth verification at the venue.\n\nFor any support, feel free to reach us at jsa.jipmer@gmail.com.\n\nWarm regards,\nTeam Spandan"
     )
     return Response({"message": "Pass verified"}, status=status.HTTP_200_OK)
 
@@ -343,7 +413,7 @@ def reject_pass_soft(request, pk):
     send_smtp_email(
         to_email=reg.email,
         subject=f"❌ {reg.get_pass_type_display()} Rejected – Spandan 2025",
-        message=f"Hi {reg.name},\n\nYour pass purchase ({reg.get_pass_type_display()}) has been rejected.\nPlease check the screenshot or contact support."
+        message=f"Hi {reg.name},\n\nYour pass purchase ({reg.get_pass_type_display()}) has been rejected.\nPlease check the screenshot or contact support.\n\nFor any query, contact us at jsa.jipmer@gmail.com.\n\nRegards,\nTeam Spandan"
     )
     return Response({'message': 'Pass rejected'}, status=status.HTTP_200_OK)
 
